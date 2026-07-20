@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>채이네 18개월 한 달 식단 대시보드 v1.1</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+    :root{--cream:#fdf9f3;--brown:#57463b;--terra:#d98162;--olive:#8b9b68;--line:#eadfd4}
+    *{box-sizing:border-box}
+    body{font-family:'Noto Sans KR',sans-serif;background:var(--cream);color:var(--brown)}
+    .card{background:#fff;border:1px solid #f0e6dd;border-radius:24px;box-shadow:0 8px 24px rgba(92,70,54,.05)}
+    .meal-chip{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .7rem;border-radius:999px;background:#fff7f2;border:1px solid #f5d7ca;font-size:.85rem;font-weight:700;cursor:pointer;transition:.15s}
+    .meal-chip:hover{transform:translateY(-1px);background:#ffefe7}
+    .today-row{background:#fff4ed!important;box-shadow:inset 4px 0 #d98162}
+    .tab-active{background:#fff;color:#b65739;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .badge{font-size:.72rem;font-weight:700;border-radius:999px;padding:.25rem .5rem;display:inline-flex;align-items:center;gap:.2rem}
+    .modal-scroll{max-height:88vh;overflow:auto}
+    button:focus-visible,input:focus-visible{outline:3px solid rgba(217,129,98,.3);outline-offset:2px}
+    @media (max-width:760px){.desktop-table{min-width:980px}.compact-hide{display:none}}
+  </style>
+</head>
+<body class="antialiased">
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-orange-100">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl md:text-2xl font-extrabold text-orange-900">채이네 유아식당 🍽️</h1>
+        <p class="text-xs text-gray-500">18개월 한 달 식단 · 조리 · 장보기 대시보드</p>
+      </div>
+      <nav class="flex gap-2 text-sm font-bold overflow-x-auto">
+        <a href="#today" class="px-3 py-2 rounded-xl hover:bg-orange-50">오늘</a>
+        <a href="#week" class="px-3 py-2 rounded-xl hover:bg-orange-50">이번 주</a>
+        <a href="#shopping" class="px-3 py-2 rounded-xl hover:bg-orange-50">장보기</a>
+        <a href="#recipes" class="px-3 py-2 rounded-xl hover:bg-orange-50">레시피</a>
+        <a href="#guide" class="px-3 py-2 rounded-xl hover:bg-orange-50">가이드</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 md:py-8 space-y-10">
+    <section id="today" class="space-y-5">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div>
+          <p class="text-sm font-bold text-orange-600">오늘의 식단</p>
+          <h2 id="todayTitle" class="text-3xl md:text-4xl font-extrabold mt-1"></h2>
+          <p id="todayWeekLabel" class="mt-2 text-gray-500"></p>
+        </div>
+        <div class="card p-3 flex flex-wrap items-center gap-2">
+          <label for="startDate" class="text-sm font-bold">1주차 시작일</label>
+          <input id="startDate" type="date" class="border rounded-xl px-3 py-2 text-sm" />
+          <button onclick="goToday()" class="px-4 py-2 rounded-xl bg-orange-600 text-white font-bold text-sm">오늘 보기</button>
+        </div>
+      </div>
+
+      <div id="todayMeals" class="grid md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+
+      <div class="grid lg:grid-cols-3 gap-5">
+        <div class="card p-5 lg:col-span-2">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <h3 class="text-xl font-extrabold">오늘 조리 순서</h3>
+            <span class="badge bg-orange-50 text-orange-700">동시 조리 기준</span>
+          </div>
+          <ol id="todaySteps" class="space-y-3"></ol>
+        </div>
+        <div class="card p-5">
+          <h3 class="text-xl font-extrabold mb-4">오늘 준비할 것</h3>
+          <div id="todayIngredients" class="space-y-2 text-sm"></div>
+          <div class="mt-5 pt-4 border-t">
+            <h4 class="font-extrabold mb-2">내일 미리 꺼내기</h4>
+            <div id="tomorrowPrep" class="text-sm text-gray-600"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="week" class="card p-5 md:p-7">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-5">
+        <div>
+          <p class="text-sm font-bold text-orange-600">한 달 식단표</p>
+          <h2 class="text-2xl md:text-3xl font-extrabold">주차별 식단</h2>
+          <p class="text-sm text-gray-500 mt-1">평일 점심은 어린이집 급식, 주말은 세 끼 식단으로 구성했어요.</p>
+        </div>
+        <div class="flex bg-gray-100 p-1 rounded-xl overflow-x-auto">
+          <button onclick="showWeek(1)" id="week-1-btn" class="week-tab px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">1주차</button>
+          <button onclick="showWeek(2)" id="week-2-btn" class="week-tab px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">2주차</button>
+          <button onclick="showWeek(3)" id="week-3-btn" class="week-tab px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">3주차</button>
+          <button onclick="showWeek(4)" id="week-4-btn" class="week-tab px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap">4주차</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-2xl border">
+        <table class="desktop-table w-full border-collapse text-left">
+          <thead class="bg-orange-50 text-orange-900">
+            <tr><th class="p-4">날짜</th><th class="p-4">아침</th><th class="p-4">점심</th><th class="p-4">저녁</th><th class="p-4">간식</th></tr>
+          </thead>
+          <tbody id="mealTableBody" class="divide-y"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="shopping" class="grid xl:grid-cols-3 gap-5">
+      <div class="card p-5 xl:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <div><p class="text-sm font-bold text-orange-600">자동 합산</p><h2 class="text-2xl font-extrabold">이번 주 장보기</h2></div>
+          <button onclick="clearInventory()" class="text-sm font-bold text-gray-500 hover:text-orange-700">체크 초기화</button>
+        </div>
+        <div id="shoppingList" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2"></div>
+      </div>
+      <div class="card p-5">
+        <p class="text-sm font-bold text-orange-600">주간 균형</p>
+        <h2 class="text-2xl font-extrabold mb-3">단백질 구성</h2>
+        <div class="h-64"><canvas id="proteinChart"></canvas></div>
+        <div id="proteinText" class="mt-3 text-xs text-gray-500 leading-relaxed"></div>
+      </div>
+    </section>
+
+    <section id="recipes" class="space-y-5">
+      <div class="text-center">
+        <p class="text-sm font-bold text-orange-600">모든 식단과 연결</p>
+        <h2 class="text-3xl font-extrabold">레시피 탐색기</h2>
+        <p class="text-gray-500 mt-2">식단표의 메뉴를 누르거나 아래에서 검색하면 재료·조리법·보관법을 바로 확인할 수 있어요.</p>
+      </div>
+      <div class="card p-4 flex flex-col md:flex-row gap-3 justify-between">
+        <div class="flex gap-2 overflow-x-auto">
+          <button onclick="filterRecipes('all')" id="btn-all" class="category-btn px-4 py-2 rounded-xl bg-orange-600 text-white font-bold text-sm">전체</button>
+          <button onclick="filterRecipes('breakfast')" id="btn-breakfast" class="category-btn px-4 py-2 rounded-xl border font-bold text-sm">아침</button>
+          <button onclick="filterRecipes('soup')" id="btn-soup" class="category-btn px-4 py-2 rounded-xl border font-bold text-sm">국</button>
+          <button onclick="filterRecipes('main')" id="btn-main" class="category-btn px-4 py-2 rounded-xl border font-bold text-sm">주반찬</button>
+          <button onclick="filterRecipes('side')" id="btn-side" class="category-btn px-4 py-2 rounded-xl border font-bold text-sm">부반찬</button>
+          <button onclick="filterRecipes('onebowl')" id="btn-onebowl" class="category-btn px-4 py-2 rounded-xl border font-bold text-sm">한 그릇</button>
+        </div>
+        <input id="recipeSearch" oninput="searchRecipes()" placeholder="메뉴 또는 재료 검색" class="border rounded-xl px-4 py-2 md:w-72" />
+      </div>
+      <div id="recipeGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+    </section>
+
+    <section id="guide" class="card p-6 md:p-8">
+      <p class="text-sm font-bold text-orange-600">조리·안전 가이드</p>
+      <h2 class="text-2xl md:text-3xl font-extrabold mb-5">채이에게 맞춰 조절할 기본 원칙</h2>
+      <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="p-4 rounded-2xl bg-orange-50"><div class="text-2xl">🥄</div><h3 class="font-extrabold mt-2">식감</h3><p class="text-sm text-gray-600 mt-1">잇몸과 어금니로 쉽게 으깰 수 있게 충분히 익히고, 길거나 질긴 재료는 잘게 잘라주세요.</p></div>
+        <div class="p-4 rounded-2xl bg-green-50"><div class="text-2xl">🧂</div><h3 class="font-extrabold mt-2">간</h3><p class="text-sm text-gray-600 mt-1">국·장조림·김·가공식품이 겹치는 날은 다른 반찬을 무염으로 조리하고 국물은 적게 주세요.</p></div>
+        <div class="p-4 rounded-2xl bg-blue-50"><div class="text-2xl">❄️</div><h3 class="font-extrabold mt-2">보관</h3><p class="text-sm text-gray-600 mt-1">완전히 식힌 뒤 소분하고, 냉장·냉동 기간과 해동법은 각 레시피의 표시를 우선 확인하세요.</p></div>
+        <div class="p-4 rounded-2xl bg-purple-50"><div class="text-2xl">⚠️</div><h3 class="font-extrabold mt-2">알레르기·가시</h3><p class="text-sm text-gray-600 mt-1">달걀·우유·밀·대두·생선·갑각류 표시를 확인하고, 순살 생선도 먹이기 전 손으로 한 번 더 확인하세요.</p></div>
+      </div>
+      <p class="text-xs text-gray-400 mt-5">※ 제공량은 채이의 식욕·성장 상태·어린이집 섭취량에 따라 조절하는 가정용 참고 기준입니다.</p>
+    </section>
+  </main>
+
+  <footer class="py-10 text-center text-sm text-gray-400">© 2026 채이네 유아식당 · 가족용 식단 대시보드</footer>
+
+  <div id="recipeModal" class="fixed inset-0 z-50 hidden bg-black/50 p-3 md:p-6 items-center justify-center" onclick="modalBackdrop(event)">
+    <div class="card w-full max-w-2xl modal-scroll p-6 md:p-8 relative">
+      <button onclick="closeModal()" class="absolute right-4 top-3 text-3xl text-gray-400 hover:text-gray-700" aria-label="닫기">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+<script>
+const allergenMap={egg:'🥚 달걀',milk:'🥛 우유',wheat:'🌾 밀',soy:'🫘 대두',fish:'🐟 생선',shellfish:'🦐 갑각류'};
+const catLabel={breakfast:'아침',soup:'국',main:'주반찬',side:'부반찬',onebowl:'한 그릇'};
+const recipes={
+'두부 단호박죽':R('breakfast',[I('밥',80,'g'),I('두부',35,'g'),I('단호박',35,'g'),I('물 또는 무염 육수',120,'ml')],['단호박을 푹 익혀 으깬다.','두부와 밥을 넣고 물을 보태 부드럽게 끓인다.','먹기 좋은 농도로 맞춘다.'],['soy'],'2회분','냉장 1일','냉동 1주'),
+'달걀 채소밥':R('breakfast',[I('밥',80,'g'),I('달걀',1,'개'),I('당근',10,'g'),I('애호박',15,'g'),I('물',20,'ml')],['채소를 잘게 다져 충분히 익힌다.','달걀을 넣어 촉촉하게 익힌다.','밥과 섞어 한김 식힌다.'],['egg'],'1회분','당일','냉동 비권장'),
+'오트밀 바나나죽':R('breakfast',[I('오트밀',30,'g'),I('바나나',50,'g'),I('우유',100,'ml')],['오트밀과 우유를 약불에서 끓인다.','바나나를 으깨 넣는다.','충분히 식혀 제공한다.'],['milk','wheat'],'1회분','당일','냉동 비권장'),
+'소고기 채소볶음밥':R('onebowl',[I('밥',80,'g'),I('소고기',35,'g'),I('당근',10,'g'),I('애호박',15,'g'),I('물',30,'ml')],['소고기와 채소를 잘게 다진다.','물을 조금 넣어 촉촉하게 볶는다.','밥을 넣고 고루 섞어 익힌다.'],[],'1회분','당일','냉동 1주'),
+'전자레인지 달걀찜밥':R('breakfast',[I('밥',80,'g'),I('달걀',1,'개'),I('물',60,'ml')],['달걀과 물을 곱게 푼다.','밥과 섞어 덮개를 씌운다.','전자레인지에 나누어 익히고 가운데까지 익었는지 확인한다.'],['egg'],'1회분','당일','냉동 비권장'),
+'감자 두부전':R('breakfast',[I('감자',60,'g'),I('두부',35,'g'),I('쌀가루',10,'g')],['감자를 익혀 으깬다.','물기를 뺀 두부와 쌀가루를 섞는다.','작게 빚어 약불에서 앞뒤로 익힌다.'],['soy'],'2회분','냉장 1일','냉동 1주'),
+'누룽지 닭죽':R('breakfast',[I('누룽지',35,'g'),I('닭고기',35,'g'),I('당근',10,'g'),I('물 또는 무염 육수',300,'ml')],['닭고기와 당근을 잘게 다진다.','물에 닭고기와 누룽지를 넣어 푹 끓인다.','질긴 부분이 없도록 확인한다.'],[],'2회분','냉장 1일','냉동 1주'),
+'단호박 우유죽':R('breakfast',[I('단호박',60,'g'),I('우유',100,'ml'),I('밥',50,'g')],['단호박을 푹 익혀 으깬다.','밥과 우유를 넣고 약불에서 끓인다.','눌어붙지 않게 저어준다.'],['milk'],'1회분','당일','냉동 비권장'),
+'소고기 무국':R('soup',[I('소고기',30,'g'),I('무',35,'g'),I('육수',220,'ml')],['무와 고기를 작게 썬다.','고기를 물볶음한 뒤 무와 육수를 넣는다.','무가 쉽게 으깨질 때까지 끓인다.'],[],'2회분','냉장 2일','냉동 2주'),
+'감자 달걀국':R('soup',[I('감자',40,'g'),I('달걀',1,'개'),I('육수',220,'ml')],['감자를 작게 썰어 육수에 푹 익힌다.','달걀물을 천천히 넣는다.','완전히 익힌 뒤 식힌다.'],['egg'],'2회분','냉장 1일','냉동 비권장'),
+'두부 된장국':R('soup',[I('두부',40,'g'),I('애호박',25,'g'),I('아기된장',2,'g'),I('육수',220,'ml')],['된장을 아주 묽게 푼다.','애호박을 먼저 푹 익힌다.','두부를 넣고 한소끔 끓인다.'],['soy'],'2회분','냉장 1일','냉동 비권장'),
+'소고기 미역국':R('soup',[I('소고기',30,'g'),I('불린 미역',20,'g'),I('육수',230,'ml')],['미역을 짧게 잘라 충분히 볶는다.','소고기와 육수를 넣는다.','미역이 부드러워질 때까지 푹 끓인다.'],[],'2회분','냉장 2일','냉동 2주'),
+'맑은 순두부국':R('soup',[I('순두부',60,'g'),I('달걀',1,'개'),I('육수',220,'ml')],['육수를 끓인다.','순두부를 숟가락으로 작게 떠 넣는다.','달걀물을 넣어 완전히 익힌다.'],['soy','egg'],'2회분','냉장 1일','냉동 비권장'),
+'들깨 배추국':R('soup',[I('배추',45,'g'),I('들깨가루',8,'g'),I('육수',230,'ml')],['배추를 짧게 썬다.','육수에 배추를 푹 익힌다.','들깨가루를 풀어 한소끔 끓인다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'닭무곰탕':R('soup',[I('닭고기',45,'g'),I('무',35,'g'),I('육수',240,'ml')],['닭고기를 삶아 잘게 찢는다.','무를 육수에 푹 익힌다.','닭고기를 넣고 다시 끓인다.'],[],'2회분','냉장 2일','냉동 2주'),
+'두부 맑은국':R('soup',[I('두부',45,'g'),I('양파',15,'g'),I('육수',220,'ml')],['양파를 육수에 부드럽게 익힌다.','두부를 작게 잘라 넣는다.','간하지 않거나 아주 약하게 마무리한다.'],['soy'],'2회분','냉장 1일','냉동 비권장'),
+'순살 찜닭':R('main',[I('닭고기',55,'g'),I('감자',35,'g'),I('당근',15,'g'),I('물 또는 무염 육수',160,'ml')],['닭고기와 채소를 작게 썬다.','물 또는 무염 육수를 넣고 재료가 부드러워질 때까지 익힌다.','아기간장을 1~2방울만 넣거나 무염으로 마무리한다.'],[],'2회분','냉장 2일','냉동 2주'),
+'순살 고등어구이':R('main',[I('순살 고등어',45,'g'),I('쌀가루',5,'g')],['생선을 흐르는 물에 가볍게 씻고 물기를 닦는다.','쌀가루를 얇게 묻혀 약불에 굽는다.','손으로 가시를 한 번 더 확인해 잘게 부순다.'],['fish'],'1회분','당일','냉동 조리 전 2주'),
+'소고기 감자조림':R('main',[I('소고기',45,'g'),I('감자',45,'g'),I('양파',15,'g'),I('물 또는 무염 육수',160,'ml')],['재료를 작은 크기로 썬다.','물 또는 무염 육수를 넣고 푹 익힌다.','양파 단맛으로 마무리하고 간장은 최소화한다.'],[],'2회분','냉장 2일','냉동 2주'),
+'돼지고기 수육':R('main',[I('돼지고기 안심',55,'g'),I('양파',20,'g'),I('물',500,'ml')],['고기를 양파와 물에 넣어 푹 삶는다.','결 반대 방향으로 매우 얇게 자른다.','육수를 조금 끼얹어 촉촉하게 제공한다.'],[],'2회분','냉장 2일','냉동 2주'),
+'야채 달걀말이':R('main',[I('달걀',2,'개'),I('당근',10,'g'),I('애호박',15,'g'),I('우유',10,'ml')],['채소를 아주 잘게 다진다.','재료를 섞어 약불에서 천천히 익힌다.','식힌 뒤 한입 크기로 자른다.'],['egg','milk'],'3회분','냉장 1일','냉동 비권장'),
+'닭고기 고구마조림':R('main',[I('닭고기',55,'g'),I('고구마',45,'g'),I('양파',15,'g'),I('물 또는 무염 육수',160,'ml')],['재료를 작게 썬다.','물 또는 무염 육수를 넣고 닭고기와 고구마를 푹 익힌다.','양파의 단맛으로 촉촉하게 졸인다.'],[],'2회분','냉장 2일','냉동 2주'),
+'소불고기':R('main',[I('소고기',50,'g'),I('양파',20,'g'),I('배',20,'g'),I('물',50,'ml')],['고기를 짧게 자르고 배즙에 10분 재운다.','양파와 물을 넣어 촉촉하게 볶는다.','국물이 조금 남도록 촉촉하게 익힌다.'],[],'2회분','냉장 2일','냉동 2주'),
+'간장 닭볶음탕':R('main',[I('닭고기',55,'g'),I('감자',35,'g'),I('당근',15,'g'),I('물 또는 무염 육수',180,'ml')],['닭고기와 채소를 작게 썬다.','물 또는 무염 육수를 넣어 푹 익힌다.','아기간장 소량으로 향만 더한다.'],[],'2회분','냉장 2일','냉동 2주'),
+'대구살 간장조림':R('main',[I('대구살',45,'g'),I('무',30,'g'),I('물 또는 무염 육수',120,'ml')],['대구의 가시를 확인한다.','무를 물 또는 무염 육수에 먼저 푹 익힌다.','대구를 넣고 부서지지 않게 익힌 뒤 간장은 소량만 사용한다.'],['fish'],'1회분','당일','냉동 조리 전 2주'),
+'소고기 버섯볶음':R('main',[I('소고기',45,'g'),I('버섯',25,'g'),I('양파',15,'g'),I('물',40,'ml')],['버섯을 짧게 자른다.','소고기와 양파에 물을 넣어 촉촉하게 볶는다.','버섯을 넣고 질기지 않게 익힌다.'],[],'2회분','냉장 2일','냉동 1주'),
+'소고기 장조림':R('main',[I('소고기',55,'g'),I('무',30,'g'),I('물 또는 무염 육수',300,'ml')],['고기를 물에 푹 삶아 결대로 잘게 찢는다.','무와 남은 육수를 넣고 부드럽게 졸인다.','간장은 최소량만 넣고 국물은 적게 제공한다.'],[],'3회분','냉장 2일','냉동 2주'),
+'소고기 육전':R('main',[I('소고기',50,'g'),I('달걀',1,'개'),I('쌀가루',8,'g')],['고기를 얇게 펴고 쌀가루를 묻힌다.','달걀물을 입혀 약불에서 익힌다.','질긴 부분 없이 잘게 잘라 제공한다.'],['egg'],'2회분','냉장 1일','냉동 1주'),
+'숙주나물':R('side',[I('숙주',45,'g'),I('물',400,'ml')],['물을 끓여 숙주를 충분히 익힌다.','질긴 꼬리 부분을 정리하고 짧게 자른다.','들기름 한두 방울로 마무리한다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'애호박나물':R('side',[I('애호박',50,'g'),I('물',30,'ml')],['애호박을 얇고 짧게 썬다.','물 30ml를 넣어 찌듯이 익힌다.','아주 부드러워지면 불을 끈다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'느타리버섯볶음':R('side',[I('느타리버섯',45,'g'),I('양파',10,'g'),I('물',30,'ml')],['버섯을 짧게 찢고 자른다.','양파와 물을 넣어 촉촉하게 볶는다.','질기지 않게 충분히 익힌다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'오이나물':R('side',[I('오이',45,'g'),I('물',300,'ml')],['오이 껍질과 씨가 질기면 제거한다.','얇게 썰어 살짝 볶거나 데친다.','간하지 않고 부드럽게 제공한다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'감자채볶음':R('side',[I('감자',55,'g'),I('물',50,'ml')],['감자를 아주 짧고 가늘게 썬다.','물에 헹군 뒤 물 50ml를 넣어 익힌다.','부드러워질 때까지 약불에서 볶는다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'브로콜리무침':R('side',[I('브로콜리',45,'g'),I('찜용 물',300,'ml')],['찜기에 물을 넣고 브로콜리를 푹 찐다.','송이를 잘게 자른다.','들기름 한두 방울로 버무린다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'시금치나물':R('side',[I('시금치',45,'g'),I('물',500,'ml')],['물을 끓여 시금치를 충분히 데친다.','물기를 짜고 매우 짧게 자른다.','들기름 한두 방울로 무친다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'양배추나물':R('side',[I('양배추',50,'g'),I('찜용 물',300,'ml')],['양배추를 짧게 썬다.','찜기에 물을 넣고 푹 익힌다.','부드러워지면 잘게 잘라 제공한다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'가지나물':R('side',[I('가지',50,'g'),I('찜용 물',300,'ml')],['찜기에 물을 넣고 가지를 푹 찐다.','껍질이 질기면 제거한다.','숟가락으로 으깨듯 잘게 나눈다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'무나물':R('side',[I('무',55,'g'),I('물 또는 무염 육수',70,'ml')],['무를 가늘고 짧게 썬다.','물 또는 무염 육수 70ml를 넣어 푹 익힌다.','쉽게 으깨질 정도가 되면 마무리한다.'],[],'2회분','냉장 1일','냉동 비권장'),
+'콩나물무침':R('side',[I('콩나물',45,'g'),I('물',300,'ml')],['물을 넣고 콩나물을 충분히 익힌다.','질긴 꼬리를 정리하고 짧게 자른다.','간하지 않고 들기름만 소량 넣는다.'],['soy'],'2회분','냉장 1일','냉동 비권장'),
+'아기 카레라이스':R('onebowl',[I('밥',80,'g'),I('닭고기',40,'g'),I('감자',30,'g'),I('당근',15,'g'),I('아기카레',5,'g'),I('물',180,'ml')],['재료를 작게 썬다.','물에 채소와 닭고기를 푹 익힌다.','카레를 소량 풀고 밥에 곁들인다.'],['wheat'],'2회분','냉장 1일','냉동 2주'),
+'아기 잔치국수':R('onebowl',[I('소면',45,'g'),I('애호박',20,'g'),I('달걀',1,'개'),I('육수',220,'ml')],['면을 매우 부드럽게 삶아 짧게 자른다.','육수에 채소를 익힌다.','달걀을 익혀 고명으로 올린다.'],['wheat','egg'],'1회분','당일','냉동 비권장'),
+'아기 짜장밥':R('onebowl',[I('밥',80,'g'),I('소고기',40,'g'),I('감자',30,'g'),I('아기짜장',5,'g'),I('물',180,'ml')],['고기와 채소를 작게 썬다.','물 180ml를 넣고 푹 익힌다.','짜장가루를 소량 풀어 밥에 곁들인다.'],['wheat','soy'],'2회분','냉장 1일','냉동 2주'),
+'물만두 채소국':R('onebowl',[I('아기 물만두',5,'개'),I('애호박',20,'g'),I('육수',220,'ml')],['만두를 반 또는 네 조각으로 자른다.','육수에 채소를 먼저 익힌다.','만두 속까지 충분히 익힌다.'],['wheat','soy'],'1회분','당일','냉동 비권장'),
+'닭고기 주먹밥':R('onebowl',[I('밥',80,'g'),I('닭고기',35,'g'),I('김가루',1,'g'),I('물',30,'ml')],['닭고기를 잘게 다져 물을 넣고 충분히 익힌다.','밥과 섞는다.','작고 부드럽게 뭉치되 김가루는 소량만 사용한다.'],[],'1회분','당일','냉동 비권장'),
+'새우 볶음밥':R('onebowl',[I('밥',80,'g'),I('새우',35,'g'),I('달걀',1,'개'),I('당근',10,'g'),I('물',30,'ml')],['새우의 껍질과 내장을 제거하고 잘게 다진다.','채소와 새우를 충분히 익힌다.','달걀과 밥을 넣어 촉촉하게 볶는다.'],['shellfish','egg'],'1회분','당일','냉동 1주')
+};
+function I(name,qty,unit){return{name,qty,unit}}
+function R(category,ingredients,method,allergens,servings,fridge,freeze){return{category,ingredients,method,allergens,servings,fridge,freeze}}
+const snacks=['바나나 + 플레인 요거트','찐 고구마 + 우유','제철 과일 + 치즈','단호박 큐브 + 우유','사과찜 + 요거트','두부구이 한 조각 + 과일','찐 감자 + 우유'];
+const weeks=[
+[
+D('두부 단호박죽','어린이집 급식',['소고기 무국','순살 찜닭','숙주나물'],snacks[0]),
+D('달걀 채소밥','어린이집 급식',['감자 달걀국','순살 고등어구이','애호박나물'],snacks[1]),
+D('소고기 채소볶음밥','어린이집 급식',['두부 된장국','소고기 감자조림','느타리버섯볶음'],snacks[2]),
+D('전자레인지 달걀찜밥','어린이집 급식',['맑은 순두부국','돼지고기 수육','오이나물'],snacks[3]),
+D('오트밀 바나나죽','어린이집 급식',['두부 맑은국','야채 달걀말이','감자채볶음'],snacks[4]),
+D('새우 볶음밥','아기 카레라이스',['소고기 미역국','닭고기 고구마조림','브로콜리무침'],snacks[5]),
+D('물만두 채소국','닭고기 주먹밥',['감자 달걀국','소불고기','애호박나물'],snacks[6])],
+[
+D('감자 두부전','어린이집 급식',['들깨 배추국','돼지고기 수육','시금치나물'],snacks[1]),
+D('두부 단호박죽','어린이집 급식',['소고기 무국','소불고기','애호박나물'],snacks[2]),
+D('단호박 우유죽','어린이집 급식',['두부 맑은국','간장 닭볶음탕','브로콜리무침'],snacks[3]),
+D('누룽지 닭죽','어린이집 급식',['들깨 배추국','소고기 장조림','숙주나물'],snacks[4]),
+D('달걀 채소밥','어린이집 급식',['소고기 무국','야채 달걀말이','양배추나물'],snacks[5]),
+D('아기 카레라이스','아기 잔치국수',['두부 된장국','대구살 간장조림','소고기 버섯볶음'],snacks[6]),
+D('전자레인지 달걀찜밥','소고기 채소볶음밥',['소고기 미역국','돼지고기 수육','느타리버섯볶음'],snacks[0])],
+[
+D('달걀 채소밥','어린이집 급식',['감자 달걀국','간장 닭볶음탕','브로콜리무침'],snacks[2]),
+D('두부 단호박죽','어린이집 급식',['소고기 무국','대구살 간장조림','애호박나물'],snacks[3]),
+D('단호박 우유죽','어린이집 급식',['맑은 순두부국','소고기 버섯볶음','가지나물'],snacks[4]),
+D('누룽지 닭죽','어린이집 급식',['닭무곰탕','야채 달걀말이','무나물'],snacks[5]),
+D('전자레인지 달걀찜밥','어린이집 급식',['두부 맑은국','소고기 감자조림','애호박나물'],snacks[6]),
+D('아기 잔치국수','닭고기 주먹밥',['소고기 미역국','돼지고기 수육','감자채볶음'],snacks[0]),
+D('감자 두부전','새우 볶음밥',['감자 달걀국','닭고기 고구마조림','느타리버섯볶음'],snacks[1])],
+[
+D('누룽지 닭죽','어린이집 급식',['두부 된장국','돼지고기 수육','시금치나물'],snacks[3]),
+D('두부 단호박죽','어린이집 급식',['두부 맑은국','순살 고등어구이','양배추나물'],snacks[4]),
+D('단호박 우유죽','어린이집 급식',['소고기 무국','간장 닭볶음탕','오이나물'],snacks[5]),
+D('감자 두부전','어린이집 급식',['닭무곰탕','소고기 버섯볶음','무나물'],snacks[6]),
+D('달걀 채소밥','어린이집 급식',['들깨 배추국','소고기 장조림','브로콜리무침'],snacks[0]),
+D('아기 짜장밥','물만두 채소국',['두부 맑은국','소고기 육전','콩나물무침'],snacks[1]),
+D('전자레인지 달걀찜밥','아기 카레라이스',['소고기 무국','돼지고기 수육','숙주나물'],snacks[2])]
+];
+function D(b,l,d,s){return{breakfast:b,lunch:l,dinner:d,snack:s}}
+let selectedWeek=1, chart;
+const weekday=['일','월','화','수','목','금','토'];
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('chaeiStart');
+  document.getElementById('startDate').value=saved||nextMondayISO();
+  document.getElementById('startDate').addEventListener('change',e=>{localStorage.setItem('chaeiStart',e.target.value);renderAll()});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+  renderAll(); renderRecipes(Object.keys(recipes));
+});
+function nextMondayISO(){const d=new Date();const day=d.getDay();const add=day===0?1:(8-day)%7;d.setDate(d.getDate()+add);return fmtISO(d)}
+function fmtISO(d){const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)}
+function parseDate(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function dateLabel(d){return `${d.getMonth()+1}월 ${d.getDate()}일(${weekday[d.getDay()]})`}
+function getPlanIndex(date=new Date()){const start=parseDate(document.getElementById('startDate').value);const target=new Date(date.getFullYear(),date.getMonth(),date.getDate());return Math.floor((target-start)/86400000)}
+function getMealByIndex(i){if(i<0)i=0;i=i%28;return{meal:weeks[Math.floor(i/7)][i%7],week:Math.floor(i/7)+1,day:i%7}}
+function renderAll(){renderToday();showWeek(selectedWeek);renderShopping();renderProtein()}
+function renderToday(){const idx=getPlanIndex();const data=getMealByIndex(idx);const today=new Date();document.getElementById('todayTitle').textContent=dateLabel(today);document.getElementById('todayWeekLabel').textContent=`${data.week}주차 ${['월','화','수','목','금','토','일'][data.day]}요일 식단`;
+ const blocks=[['아침','🌅',data.meal.breakfast],['점심','☀️',data.meal.lunch],['저녁','🌙',data.meal.dinner],['간식','🍎',data.meal.snack]];
+ document.getElementById('todayMeals').innerHTML=blocks.map(([t,ic,v])=>`<div class="card p-5"><div class="flex items-center justify-between"><span class="text-2xl">${ic}</span><label class="text-xs font-bold text-gray-400"><input type="checkbox" class="mr-1" data-check="today-${t}" ${loadCheck('today-'+t)?'checked':''} onchange="saveCheck(this)">완료</label></div><h3 class="font-extrabold text-lg mt-3">${t}</h3><div class="mt-2 leading-relaxed">${renderMealValue(v)}</div></div>`).join('');
+ const cookNames=[data.meal.breakfast,...(data.meal.lunch==='어린이집 급식'?[]:[data.meal.lunch]),...data.meal.dinner];
+ const steps=[`냉동 재료와 육수를 먼저 꺼내고, 필요한 채소를 한 번에 씻어 손질해요.`,`가장 오래 걸리는 ${data.meal.dinner[0]}부터 시작해요.`,`주반찬 ${data.meal.dinner[1]}을 익히는 동안 부반찬 ${data.meal.dinner[2]}을 준비해요.`,`완성된 음식은 채이 몫을 먼저 덜고 충분히 식힌 뒤 제공해요.`];
+ document.getElementById('todaySteps').innerHTML=steps.map((s,i)=>`<li class="flex gap-3"><span class="w-8 h-8 shrink-0 rounded-full bg-orange-100 text-orange-800 font-extrabold flex items-center justify-center">${i+1}</span><span class="pt-1 text-gray-700">${s}</span></li>`).join('');
+ const sums=sumIngredients(cookNames);document.getElementById('todayIngredients').innerHTML=Object.values(sums).slice(0,12).map(x=>`<div class="flex justify-between border-b border-dashed pb-1"><span>${x.name}</span><b>${prettyQty(x.qty)}${x.unit}</b></div>`).join('')||'<p class="text-gray-400">준비 재료가 없어요.</p>';
+ const tomorrow=getMealByIndex(idx+1).meal;const prep=[tomorrow.breakfast,...(tomorrow.lunch==='어린이집 급식'?[]:[tomorrow.lunch]),...tomorrow.dinner].filter(n=>recipes[n]&&recipes[n].freeze!=='냉동 비권장');document.getElementById('tomorrowPrep').innerHTML=prep.length?prep.map(n=>`<span class="meal-chip mb-2" onclick="openModal('${esc(n)}')">❄️ ${n}</span>`).join(' '):'냉동 해동이 필요한 메뉴가 없어요.';
+}
+function renderMealValue(v){if(Array.isArray(v))return v.map(n=>mealChip(n)).join(' ');if(v==='어린이집 급식')return `<span class="badge bg-green-50 text-green-700">🏫 어린이집 급식</span>`;if(recipes[v])return mealChip(v);return `<span class="text-gray-700">${v}</span>`}
+function mealChip(n){return `<button class="meal-chip" onclick="openModal('${esc(n)}')">${n}</button>`}
+function showWeek(n){selectedWeek=n;document.querySelectorAll('.week-tab').forEach(b=>b.classList.remove('tab-active'));document.getElementById(`week-${n}-btn`).classList.add('tab-active');const start=parseDate(document.getElementById('startDate').value);const todayISO=fmtISO(new Date());document.getElementById('mealTableBody').innerHTML=weeks[n-1].map((d,i)=>{const date=addDays(start,(n-1)*7+i);const isToday=fmtISO(date)===todayISO;return `<tr class="${isToday?'today-row':''}"><td class="p-4 font-extrabold whitespace-nowrap"><div>${dateLabel(date)}</div>${isToday?'<span class="badge bg-orange-600 text-white mt-1">오늘</span>':''}</td><td class="p-4">${renderMealValue(d.breakfast)}</td><td class="p-4">${renderMealValue(d.lunch)}</td><td class="p-4">${renderMealValue(d.dinner)}</td><td class="p-4 text-sm">${d.snack}</td></tr>`}).join('');renderShopping();renderProtein()}
+function renderShopping(){const names=[];weeks[selectedWeek-1].forEach(d=>{names.push(d.breakfast);if(d.lunch!=='어린이집 급식')names.push(d.lunch);names.push(...d.dinner)});const sums=sumIngredients(names,false);const box=document.getElementById('shoppingList');box.innerHTML=Object.values(sums).sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(x=>{const key=`inv-${selectedWeek}-${x.name}`;return `<label class="flex items-center justify-between gap-2 p-3 rounded-xl border bg-white hover:bg-orange-50 cursor-pointer"><span class="flex items-center gap-2"><input type="checkbox" data-check="${key}" ${loadCheck(key)?'checked':''} onchange="saveCheck(this)"><span>${x.name}</span></span><b class="text-orange-700">${prettyQty(x.qty)}${x.unit}</b></label>`}).join('')}
+function sumIngredients(names,includeLiquids=true){const out={};names.forEach(n=>{const r=recipes[n];if(!r)return;r.ingredients.forEach(i=>{if(!includeLiquids&&/물|육수/.test(i.name))return;const k=i.name+'|'+i.unit;if(!out[k])out[k]={...i};else out[k].qty+=i.qty})});return out}
+function renderProtein(){const counts={소고기:0,닭고기:0,돼지고기:0,'생선·해산물':0,'달걀·두부':0};const names=[];weeks[selectedWeek-1].forEach(d=>{names.push(d.breakfast);if(d.lunch!=='어린이집 급식')names.push(d.lunch);names.push(...d.dinner)});names.forEach(n=>{const text=n+(recipes[n]?.ingredients.map(x=>x.name).join(' ')||'');if(/소고기/.test(text))counts['소고기']++;if(/닭/.test(text))counts['닭고기']++;if(/돼지/.test(text))counts['돼지고기']++;if(/고등어|대구|새우/.test(text))counts['생선·해산물']++;if(/달걀|두부|순두부/.test(text))counts['달걀·두부']++});const ctx=document.getElementById('proteinChart');if(chart)chart.destroy();chart=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(counts),datasets:[{data:Object.values(counts),backgroundColor:['#d98162','#e9b89f','#8b9b68','#9fc2cf','#d8c8e8'],borderWidth:0}]},options:{maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},cutout:'68%'}});document.getElementById('proteinText').textContent=Object.entries(counts).map(([k,v])=>`${k} ${v}회`).join(' · ')}
+function renderRecipes(keys){document.getElementById('recipeGrid').innerHTML=keys.map(n=>{const r=recipes[n];return `<button onclick="openModal('${esc(n)}')" class="card p-5 text-left hover:-translate-y-1 transition"><span class="badge bg-orange-50 text-orange-700">${catLabel[r.category]}</span><h3 class="font-extrabold text-lg mt-3">${n}</h3><p class="text-sm text-gray-500 mt-2">${r.ingredients.slice(0,3).map(i=>i.name).join(' · ')}</p><div class="mt-3 flex flex-wrap gap-1">${r.allergens.map(a=>`<span class="badge bg-gray-100 text-gray-600">${allergenMap[a]}</span>`).join('')||'<span class="text-xs text-gray-400">주요 알레르기 표시 없음</span>'}</div></button>`}).join('')}
+function filterRecipes(cat){document.querySelectorAll('.category-btn').forEach(b=>b.className='category-btn px-4 py-2 rounded-xl border font-bold text-sm');document.getElementById('btn-'+cat).className='category-btn px-4 py-2 rounded-xl bg-orange-600 text-white font-bold text-sm';const q=document.getElementById('recipeSearch').value.trim().toLowerCase();renderRecipes(Object.keys(recipes).filter(n=>(cat==='all'||recipes[n].category===cat)&&matchRecipe(n,q)))}
+function searchRecipes(){const q=document.getElementById('recipeSearch').value.trim().toLowerCase();renderRecipes(Object.keys(recipes).filter(n=>matchRecipe(n,q)))}
+function matchRecipe(n,q){const r=recipes[n];return !q||(n+' '+r.ingredients.map(i=>i.name).join(' ')).toLowerCase().includes(q)}
+function openModal(name){const r=recipes[name];if(!r)return;document.getElementById('modalContent').innerHTML=`<span class="badge bg-orange-50 text-orange-700">${catLabel[r.category]}</span><h2 class="text-3xl font-extrabold mt-3 pr-8">${name}</h2><div class="flex flex-wrap gap-2 mt-3">${r.allergens.map(a=>`<span class="badge bg-red-50 text-red-700">${allergenMap[a]}</span>`).join('')||'<span class="badge bg-green-50 text-green-700">주요 알레르기 표시 없음</span>'}</div><div class="grid sm:grid-cols-3 gap-2 mt-5 text-sm"><div class="p-3 rounded-xl bg-gray-50"><b>완성량</b><br>${r.servings}</div><div class="p-3 rounded-xl bg-gray-50"><b>냉장</b><br>${r.fridge}</div><div class="p-3 rounded-xl bg-gray-50"><b>냉동</b><br>${r.freeze}</div></div><h3 class="font-extrabold text-lg mt-6 mb-1">재료</h3><p class="text-xs text-gray-500 mb-3">물·육수 양은 조리 시작 기준이며, 불 세기와 재료 상태에 따라 10~20ml씩 추가해 농도를 맞춰주세요.</p><div class="grid sm:grid-cols-2 gap-2">${r.ingredients.map(i=>`<div class="flex justify-between border-b border-dashed pb-1"><span>${i.name}</span><b>${i.qty}${i.unit}</b></div>`).join('')}</div><h3 class="font-extrabold text-lg mt-6 mb-3">조리 순서</h3><ol class="space-y-3">${r.method.map((m,i)=>`<li class="flex gap-3"><span class="w-7 h-7 shrink-0 rounded-full bg-orange-100 text-orange-800 flex items-center justify-center font-bold">${i+1}</span><span>${m}</span></li>`).join('')}</ol><div class="mt-6 p-4 rounded-xl bg-yellow-50 text-sm text-yellow-900"><b>제공 전 확인</b><br>충분히 식혔는지, 질긴 부분이나 생선 가시가 없는지 확인하고 채이의 식사량에 맞춰 덜어주세요.</div>`;const m=document.getElementById('recipeModal');m.classList.remove('hidden');m.classList.add('flex')}
+function closeModal(){const m=document.getElementById('recipeModal');m.classList.add('hidden');m.classList.remove('flex')}
+function modalBackdrop(e){if(e.target.id==='recipeModal')closeModal()}
+function esc(s){return s.replace(/'/g,"\\'")}
+function prettyQty(n){return Number.isInteger(n)?n:Math.round(n*10)/10}
+function saveCheck(el){localStorage.setItem(el.dataset.check,el.checked?'1':'0')}
+function loadCheck(k){return localStorage.getItem(k)==='1'}
+function clearInventory(){Object.keys(localStorage).filter(k=>k.startsWith(`inv-${selectedWeek}-`)).forEach(k=>localStorage.removeItem(k));renderShopping()}
+function goToday(){const idx=getPlanIndex();selectedWeek=getMealByIndex(idx).week;renderAll();document.getElementById('today').scrollIntoView({behavior:'smooth'})}
+</script>
+</body>
+</html>
